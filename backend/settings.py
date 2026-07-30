@@ -103,7 +103,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 CORS_ALLOWED_ORIGINS = [
-    "https://nexus-egames.vercel.app/",
+    "https://nexus-egames.vercel.app",
 ]
 
 REST_FRAMEWORK = {
