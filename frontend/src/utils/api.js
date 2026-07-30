@@ -9,7 +9,7 @@ export const apiFetch = async (endpoint, options = {}) => {
         ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
     };
 
-    let response = await fetch(`http://localhost:8000${endpoint}`, {
+    let response = await fetch(`https://nexus-egames.onrender.com${endpoint}`, {
         ...options,
         headers
     });
@@ -21,7 +21,7 @@ export const apiFetch = async (endpoint, options = {}) => {
         if (refreshToken) {
             try {
                 // Attempt to get a new access token
-                const refreshResponse = await fetch('http://localhost:8000/api/token/refresh/', {
+                const refreshResponse = await fetch('https://nexus-egames.onrender.com/api/token/refresh/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ refresh: refreshToken })
@@ -37,7 +37,7 @@ export const apiFetch = async (endpoint, options = {}) => {
                     // Retry the original request with the NEW access token
                     headers['Authorization'] = `Bearer ${data.access}`;
                     
-                    return await fetch(`http://localhost:8000${endpoint}`, {
+                    return await fetch(`https://nexus-egames.onrender.com${endpoint}`, {
                         ...options,
                         headers
                     });
