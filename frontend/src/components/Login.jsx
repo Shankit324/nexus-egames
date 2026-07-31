@@ -13,7 +13,7 @@ export default function Login({ setToken }) {
         setError(null);
         
         try {
-            const response = await fetch('https://nexus-egames.vercel.app/api/token/', {
+            const response = await fetch('https://nexus-egames.onrender.com/api/token/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })

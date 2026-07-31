@@ -17,7 +17,7 @@ export default function Register({ toggleView }) {
         setError(null);
         
         try {
-            const response = await fetch('https://nexus-egames.vercel.app/api/register/', {
+            const response = await fetch('https://nexus-egames.onrender.com/api/register/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
