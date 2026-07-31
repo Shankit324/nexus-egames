@@ -518,22 +518,30 @@ def host_active_room(request):
         return Response({"has_active_room": False}, status=200)
         
     room_id = active_allocations.first().room_id
-    room_password = active_allocations.first().room_password
+    room_password = getattr(active_allocations.first(), 'room_password', None)
     
     roster_data = []
     for q in active_allocations:
         if q.team:
+            # 1. Team Logic: Extract both IGNs and UIDs for all members
             igns = [m.player.ign for m in q.team.members.all()]
+            uids = [str(m.player.uid) for m in q.team.members.all()]
             name = q.team.name
+            
+            # Join multiple UIDs with a comma for the frontend display
+            final_uid = ", ".join(uids) 
         else:
+            # 2. Solo Logic: Extract single IGN and UID
             igns = [q.player.ign]
             name = q.player.ign
+            final_uid = str(q.player.uid)
             
         roster_data.append({
             "slot": q.slot_number,
             "type": "Team" if q.team else "Solo",
             "name": name,
-            "igns": igns
+            "igns": igns,
+            "uid": final_uid  # <-- The missing link is now sent to React!
         })
         
     return Response({
