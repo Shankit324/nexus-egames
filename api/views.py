@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from django.db.models import Sum, Count
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from .ocr_engine import process_screenshot
 from .models import Match, PlayerProfile, MatchResult, Tournament, MatchQueue, Team, TeamMember
 
@@ -168,23 +168,27 @@ def register_player(request):
         return Response({"error": "Missing required fields."}, status=400)
 
     try:
-        # 1. Create the base Django User
-        user = User.objects.create_user(
-            username=data['username'],
-            password=data['password']
-        )
-        
-        # 2. Create the linked Free Fire profile
-        PlayerProfile.objects.create(
-            user=user,
-            ign=data['ign'],
-            uid=data['uid']
-        )
-        
+        # THE FIX: Wrap the creation steps in an atomic transaction
+        with transaction.atomic():
+            # 1. Create the base Django User
+            user = User.objects.create_user(
+                username=data['username'],
+                password=data['password']
+            )
+            
+            # 2. Create the linked Free Fire profile
+            PlayerProfile.objects.create(
+                user=user,
+                ign=data['ign'],
+                uid=data['uid']
+            )
+            
+        # This will only execute if BOTH steps above succeed
         return Response({"message": "Player registered successfully!"}, status=201)
         
     except IntegrityError:
-        # Triggers if a username, IGN, or UID is already taken (due to our unique=True model constraints)
+        # Because of transaction.atomic(), if the IGN or UID triggers this error, 
+        # the base User account is instantly deleted/rolled back.
         return Response({"error": "Username, IGN, or UID already exists."}, status=400)
     except Exception as e:
         return Response({"error": str(e)}, status=500)
