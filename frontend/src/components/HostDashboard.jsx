@@ -13,6 +13,9 @@ export default function HostDashboard() {
     const [allocationSuccess, setAllocationSuccess] = useState(false); 
     const [activeRoom, setActiveRoom] = useState(null);
 
+    // --- COPY TO CLIPBOARD STATE ---
+    const [copiedUid, setCopiedUid] = useState(null);
+
     // --- RESULT PHASE STATES ---
     const [resultRoomId, setResultRoomId] = useState('');
     const [files, setFiles] = useState([null]);
@@ -62,7 +65,7 @@ export default function HostDashboard() {
             const response = await apiFetch('/api/host/auto-allocate/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: roomId, mode: 'Squad' }) // Password completely removed
+                body: JSON.stringify({ room_id: roomId, mode: 'Squad' })
             });
             const data = await response.json();
             
@@ -113,6 +116,14 @@ export default function HostDashboard() {
                 alert(data.error);
             }
         } catch (error) { console.error(error); } finally { setUploading(false); }
+    };
+
+    // --- COPY FUNCTION ---
+    const handleCopyUid = (uid) => {
+        if (!uid) return;
+        navigator.clipboard.writeText(uid);
+        setCopiedUid(uid);
+        setTimeout(() => setCopiedUid(null), 2000);
     };
 
     return (
@@ -231,6 +242,8 @@ export default function HostDashboard() {
                                                     <th style={{ padding: '12px 16px', color: '#94a3b8', fontWeight: '600' }}>Slot</th>
                                                     <th style={{ padding: '12px 16px', color: '#94a3b8', fontWeight: '600' }}>Team Name</th>
                                                     <th style={{ padding: '12px 16px', color: '#94a3b8', fontWeight: '600' }}>Registered IGNs</th>
+                                                    {/* NEW UID HEADER */}
+                                                    <th style={{ padding: '12px 16px', color: '#94a3b8', fontWeight: '600' }}>UID</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -239,6 +252,30 @@ export default function HostDashboard() {
                                                         <td style={{ padding: '12px 16px', fontWeight: 'bold', color: '#60a5fa' }}>#{r.slot}</td>
                                                         <td style={{ padding: '12px 16px', color: '#f8fafc' }}>{r.name}</td>
                                                         <td style={{ padding: '12px 16px', color: '#cbd5e1' }}>{r.igns.join(', ')}</td>
+                                                        
+                                                        {/* NEW UID CELL WITH COPY BUTTON */}
+                                                        <td style={{ padding: '12px 16px' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                <span style={{ fontFamily: 'monospace', color: '#cbd5e1' }}>
+                                                                    {r.uid || 'N/A'}
+                                                                </span>
+                                                                {r.uid && (
+                                                                    <button 
+                                                                        onClick={() => handleCopyUid(r.uid)}
+                                                                        className="btn-anim"
+                                                                        style={{ 
+                                                                            ...btnStyle, 
+                                                                            padding: '4px 10px', 
+                                                                            fontSize: '12px', 
+                                                                            backgroundColor: copiedUid === r.uid ? '#10b981' : '#475569',
+                                                                            color: '#f8fafc'
+                                                                        }}
+                                                                    >
+                                                                        {copiedUid === r.uid ? 'Copied!' : 'Copy'}
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </td>
                                                     </tr>
                                                 ))}
                                             </tbody>
