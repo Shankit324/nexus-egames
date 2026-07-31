@@ -3,6 +3,8 @@ Django settings for backend project.
 """
 
 from pathlib import Path
+import os
+import dj_database_url # ADDED: Required for Render's PostgreSQL
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -12,10 +14,8 @@ SECRET_KEY = 'django-insecure-i_6pk(^_ip7l_@fx!8%$jj#n17js1=c^sux6kf#mz8y&11-1t2
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-# FIX 1: Removed https:// from the allowed hosts. 
 ALLOWED_HOSTS = ['nexus-egames.onrender.com', 'localhost', '127.0.0.1']
 
-# FIX 2: Added CSRF_TRUSTED_ORIGINS (Must include https:// here)
 CSRF_TRUSTED_ORIGINS = [
     'https://nexus-egames.vercel.app',
     'https://nexus-egames.onrender.com',
@@ -64,12 +64,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'backend.wsgi.application'
 
-# Database
+# FIX: Switch to Render's PostgreSQL using dj-database-url.
+# It defaults to SQLite locally if no DATABASE_URL is found, but uses Postgres in prod!
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
+        conn_max_age=600
+    )
 }
 
 # Password validation
@@ -88,9 +89,10 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# CORS Configuration (This part was correct!)
+# CORS Configuration
 CORS_ALLOWED_ORIGINS = [
     "https://nexus-egames.vercel.app",
+    "http://localhost:5173", # Added back so you can still test locally!
 ]
 
 REST_FRAMEWORK = {
@@ -108,5 +110,4 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
 
-# FIX 3: Added STATIC_ROOT so Render can collect your static files for the Admin UI
 STATIC_ROOT = BASE_DIR / 'staticfiles'
