@@ -366,7 +366,7 @@ def host_auto_allocate(request):
     sorted_entries.sort(key=get_size, reverse=True)
 
     max_slot_size = 4 if target_mode == 'Squad' else (2 if target_mode == 'Duo' else 1)
-    max_slots = (8 // max_slot_size)
+    max_slots = 12
 
     slots = [] 
     for entry in sorted_entries:
