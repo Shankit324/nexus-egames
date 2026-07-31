@@ -346,13 +346,11 @@ def host_auto_allocate(request):
         return Response({"error": "Unauthorized"}, status=403)
 
     room_id = request.data.get('room_id')
-    room_password = request.data.get('room_password')
     target_mode = request.data.get('mode', 'Squad')
 
-    if not room_id or not room_password:
-        return Response({"error": "Room ID and Password are required."}, status=400)
+    if not room_id:
+        return Response({"error": "Room ID is required."}, status=400)
 
-    # 1. Fetch everyone waiting for this mode, ordered by who waited longest
     waiting_entries = MatchQueue.objects.filter(
         status='Waiting', 
         game_mode=target_mode
@@ -361,27 +359,20 @@ def host_auto_allocate(request):
     if not waiting_entries.exists():
         return Response({"error": "No players in the queue for this mode."}, status=400)
 
-    # Helper function to get the number of players in a queue entry
     def get_size(entry):
         return entry.team.size if entry.team else 1
 
-    # 2. Sort entries by size descending (Squads(4) first, then Trios(3), Duos(2), Solos(1))
-    # This is the "Bin Packing" algorithm for optimal matchmaking
     sorted_entries = list(waiting_entries)
     sorted_entries.sort(key=get_size, reverse=True)
 
-    # Max capacity for Squads (4 players per slot, 12 slots)
     max_slot_size = 4 if target_mode == 'Squad' else (2 if target_mode == 'Duo' else 1)
-    max_slots = 12 
+    max_slots = (8 // max_slot_size)
 
-    slots = [] # Will hold our generated teams
-
-    # 3. Systematically pack the slots
+    slots = [] 
     for entry in sorted_entries:
         size = get_size(entry)
         placed = False
         
-        # Try to fit them into an existing partially-filled slot
         for slot in slots:
             if slot['current_size'] + size <= max_slot_size:
                 slot['entries'].append(entry)
@@ -389,25 +380,19 @@ def host_auto_allocate(request):
                 placed = True
                 break
         
-        # If they didn't fit, open a new slot (if we haven't hit 12 slots yet)
         if not placed:
             if len(slots) < max_slots:
-                slots.append({
-                    'current_size': size,
-                    'entries': [entry]
-                })
+                slots.append({'current_size': size, 'entries': [entry]})
             else:
-                # Lobby is completely full (48 players). Leave the rest in the 'Waiting' queue.
                 break 
 
-    # 4. Save the allocations to the database
+    # 4. Save the allocations to the database (NO PASSWORD SAVED)
     allocated_count = 0
     for index, slot in enumerate(slots):
-        slot_num = index + 1 # Free Fire slots 1-12
+        slot_num = index + 1 
         for entry in slot['entries']:
             entry.status = 'Allocated'
             entry.room_id = room_id
-            entry.room_password = room_password
             entry.slot_number = slot_num
             entry.save()
             allocated_count += get_size(entry)

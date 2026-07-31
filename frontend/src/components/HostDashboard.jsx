@@ -8,7 +8,6 @@ export default function HostDashboard() {
     // --- LOBBY & ACTIVE ROOM STATES ---
     const [queue, setQueue] = useState([]);
     const [roomId, setRoomId] = useState('');
-    const [roomPassword, setRoomPassword] = useState('');
     const [allocating, setAllocating] = useState(false);
     
     const [allocationSuccess, setAllocationSuccess] = useState(false); 
@@ -63,7 +62,7 @@ export default function HostDashboard() {
             const response = await apiFetch('/api/host/auto-allocate/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: roomId, room_password: roomPassword, mode: 'Squad' })
+                body: JSON.stringify({ room_id: roomId, mode: 'Squad' }) // Password completely removed
             });
             const data = await response.json();
             
@@ -83,7 +82,6 @@ export default function HostDashboard() {
 
     const handleProceedToUpload = () => {
         setRoomId('');               
-        setRoomPassword('');         
         setActiveTab('results');     
     };
 
@@ -120,7 +118,6 @@ export default function HostDashboard() {
     return (
         <div className="host-dashboard" style={{ maxWidth: '960px', margin: '2rem auto', padding: '0 15px', color: '#e2e8f0', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
             
-            {/* INJECTED CSS FOR HOVERS AND SCROLLBARS */}
             <style>{`
                 .host-dashboard .custom-scroll::-webkit-scrollbar { width: 8px; }
                 .host-dashboard .custom-scroll::-webkit-scrollbar-track { background: #0f172a; border-radius: 8px; }
@@ -135,7 +132,6 @@ export default function HostDashboard() {
                 .host-dashboard .list-card:hover { background-color: #1e293b; }
             `}</style>
 
-            {/* HEADER */}
             <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                 <h2 style={{ fontSize: '2rem', fontWeight: '800', margin: '0 0 0.5rem 0', background: 'linear-gradient(to right, #3b82f6, #10b981)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                     Tournament Control Center
@@ -143,7 +139,6 @@ export default function HostDashboard() {
                 <p style={{ color: '#94a3b8', margin: 0 }}>Manage lobbies and process match results efficiently.</p>
             </div>
             
-            {/* MODERN PILL TABS */}
             <div style={{ display: 'flex', backgroundColor: '#0f172a', padding: '6px', borderRadius: '12px', marginBottom: '24px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3)' }}>
                 <button 
                     onClick={() => setActiveTab('lobby')} 
@@ -161,12 +156,8 @@ export default function HostDashboard() {
                 </button>
             </div>
 
-            {/* MAIN CONTENT CARD */}
             <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #334155' }}>
                 
-                {/* ======================================= */}
-                {/* TAB 1: LOBBY MANAGEMENT                 */}
-                {/* ======================================= */}
                 {activeTab === 'lobby' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                         
@@ -215,7 +206,6 @@ export default function HostDashboard() {
 
                         <div style={{ backgroundColor: '#0f172a', padding: '24px', borderRadius: '12px', border: '1px solid #334155' }}>
                             
-                            {/* SUCCESS / ACTIVE ROOM SCREEN */}
                             {allocationSuccess && activeRoom ? (
                                 <div>
                                     <div style={{ textAlign: 'center', marginBottom: '24px' }}>
@@ -226,18 +216,14 @@ export default function HostDashboard() {
                                         <p style={{ color: '#94a3b8', margin: 0 }}>Players have received their slot assignments.</p>
                                     </div>
 
-                                    <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
-                                        <div style={{ flex: 1, backgroundColor: '#1e293b', padding: '16px', borderRadius: '8px', border: '1px solid #334155', textAlign: 'center' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
+                                        <div style={{ width: '50%', backgroundColor: '#1e293b', padding: '16px', borderRadius: '8px', border: '1px solid #334155', textAlign: 'center' }}>
                                             <div style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>Room ID</div>
-                                            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f8fafc', letterSpacing: '2px' }}>{activeRoom.room_id}</div>
-                                        </div>
-                                        <div style={{ flex: 1, backgroundColor: '#1e293b', padding: '16px', borderRadius: '8px', border: '1px solid #334155', textAlign: 'center' }}>
-                                            <div style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '1px' }}>Password</div>
-                                            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ef4444', letterSpacing: '2px' }}>{activeRoom.room_password}</div>
+                                            <div style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#f8fafc', letterSpacing: '2px' }}>{activeRoom.room_id}</div>
                                         </div>
                                     </div>
 
-                                    <h4 style={{ margin: '0 0 12px 0', fontSize: '1.1rem', color: '#cbd5e1' }}>Expected Free Fire Roster:</h4>
+                                    <h4 style={{ margin: '0 0 12px 0', fontSize: '1.1rem', color: '#cbd5e1' }}>Expected Free Fire Roster (Invite manually):</h4>
                                     <div className="custom-scroll" style={{ maxHeight: '250px', overflowY: 'auto', backgroundColor: '#1e293b', borderRadius: '8px', border: '1px solid #334155', marginBottom: '24px' }}>
                                         <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', fontSize: '14px' }}>
                                             <thead style={{ position: 'sticky', top: 0, backgroundColor: '#334155' }}>
@@ -264,15 +250,20 @@ export default function HostDashboard() {
                                     </button>
                                 </div>
                             ) : (
-                                /* CREATION FORM */
                                 <div>
                                     <h4 style={{ margin: '0 0 8px 0', fontSize: '1.25rem', color: '#f8fafc' }}>Host Custom Room</h4>
                                     <p style={{ fontSize: '14px', color: '#94a3b8', margin: '0 0 20px 0' }}>
-                                        Create your room in Free Fire, then paste the details here to instantly group and assign the waiting players.
+                                        Create your room in Free Fire, then paste the Room ID here to assign waiting players to their slots.
                                     </p>
                                     <form onSubmit={handleAllocateLobby} style={{ display: 'flex', gap: '12px', alignItems: 'stretch' }}>
-                                        <input type="text" placeholder="Free Fire Room ID" value={roomId} onChange={(e) => setRoomId(e.target.value)} required style={{ ...inputStyle, flex: 2 }} />
-                                        <input type="text" placeholder="Password" value={roomPassword} onChange={(e) => setRoomPassword(e.target.value)} required style={{ ...inputStyle, flex: 1 }} />
+                                        <input 
+                                            type="text" 
+                                            placeholder="Free Fire Room ID" 
+                                            value={roomId} 
+                                            onChange={(e) => setRoomId(e.target.value)} 
+                                            required 
+                                            style={{ ...inputStyle, flex: 2 }} 
+                                        />
                                         <button type="submit" disabled={allocating || queue.length === 0} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#3b82f6', flex: 1 }}>
                                             {allocating ? 'Processing...' : 'Broadcast to Queue'}
                                         </button>
@@ -283,9 +274,6 @@ export default function HostDashboard() {
                     </div>
                 )}
 
-                {/* ======================================= */}
-                {/* TAB 2: UPLOAD RESULTS & LEADERBOARD     */}
-                {/* ======================================= */}
                 {activeTab === 'results' && (
                     <div>
                         <h3 style={{ margin: '0 0 24px 0', fontSize: '1.5rem' }}>Process Match Results</h3>
