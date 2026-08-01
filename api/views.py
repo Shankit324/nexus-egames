@@ -291,11 +291,20 @@ def manage_teams(request):
         return Response({"teams": teams_data}, status=200)
 
 
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+# Assuming Team and MatchQueue are imported at the top of your file
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def join_queue(request):
     player_profile = request.user.playerprofile
     team_id = request.data.get('team_id') 
+    
+    # 1. THE FIX: Grab the exact mode sent from your React frontend
+    target_mode = request.data.get('mode', 'Squad') 
     
     if team_id:
         team = get_object_or_404(Team, id=team_id)
@@ -303,16 +312,18 @@ def join_queue(request):
         if team.leader != player_profile:
             return Response({"error": "Only the team leader can join the matchmaking queue."}, status=403)
             
-        # NEW: Check if the team is completely full!
+        # Check if the team is completely full!
         if team.members.count() != team.size:
             return Response({"error": f"Your team is not full! You need {team.size} players to join the queue."}, status=400)
             
-        MatchQueue.objects.create(team=team)
-        return Response({"message": f"{team.name} has joined the queue!"}, status=200)
+        # 2. THE FIX: Save the game_mode to the database for teams
+        MatchQueue.objects.create(team=team, game_mode=target_mode)
+        return Response({"message": f"{team.name} has joined the {target_mode} queue!"}, status=200)
     
     else:
-        MatchQueue.objects.create(player=player_profile)
-        return Response({"message": "You have joined the solo queue!"}, status=200)
+        # 2. THE FIX: Save the game_mode to the database for solo players
+        MatchQueue.objects.create(player=player_profile, game_mode=target_mode)
+        return Response({"message": f"You have joined the {target_mode} queue!"}, status=200)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
