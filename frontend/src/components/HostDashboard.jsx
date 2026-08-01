@@ -9,6 +9,7 @@ export default function HostDashboard() {
     const [queue, setQueue] = useState([]);
     const [roomId, setRoomId] = useState('');
     const [allocating, setAllocating] = useState(false);
+    const [isAborting, setIsAborting] = useState(false); // NEW STATE
     
     const [allocationSuccess, setAllocationSuccess] = useState(false); 
     const [activeRoom, setActiveRoom] = useState(null);
@@ -80,6 +81,33 @@ export default function HostDashboard() {
             alert("An error occurred while allocating the room.");
         } finally {
             setAllocating(false);
+        }
+    };
+
+    // --- NEW ABORT FUNCTION ---
+    const handleAbortRoom = async () => {
+        if (!window.confirm("Are you sure you want to abort this room? Players will be returned to the waiting queue.")) return;
+        
+        setIsAborting(true);
+        try {
+            const response = await apiFetch('/api/host/abort-room/', {
+                method: 'POST',
+            });
+            
+            if (response.ok) {
+                setAllocationSuccess(false); 
+                setActiveRoom(null);         
+                setRoomId('');               
+                fetchQueue();                
+            } else {
+                const data = await response.json();
+                alert(data.error || "Failed to abort room.");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("An error occurred while aborting the room.");
+        } finally {
+            setIsAborting(false);
         }
     };
 
@@ -242,7 +270,6 @@ export default function HostDashboard() {
                                                     <th style={{ padding: '12px 16px', color: '#94a3b8', fontWeight: '600' }}>Slot</th>
                                                     <th style={{ padding: '12px 16px', color: '#94a3b8', fontWeight: '600' }}>Team Name</th>
                                                     <th style={{ padding: '12px 16px', color: '#94a3b8', fontWeight: '600' }}>Registered IGNs</th>
-                                                    {/* NEW UID HEADER */}
                                                     <th style={{ padding: '12px 16px', color: '#94a3b8', fontWeight: '600' }}>UID</th>
                                                 </tr>
                                             </thead>
@@ -253,7 +280,6 @@ export default function HostDashboard() {
                                                         <td style={{ padding: '12px 16px', color: '#f8fafc' }}>{r.name}</td>
                                                         <td style={{ padding: '12px 16px', color: '#cbd5e1' }}>{r.igns.join(', ')}</td>
                                                         
-                                                        {/* NEW UID CELL WITH COPY BUTTON */}
                                                         <td style={{ padding: '12px 16px' }}>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                                 <span style={{ fontFamily: 'monospace', color: '#cbd5e1' }}>
@@ -282,9 +308,26 @@ export default function HostDashboard() {
                                         </table>
                                     </div>
 
-                                    <button onClick={handleProceedToUpload} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#3b82f6', width: '100%', padding: '16px', fontSize: '1.1rem' }}>
-                                        Match Started → Move to Result Upload
-                                    </button>
+                                    {/* NEW BUTTON LAYOUT HERE */}
+                                    <div style={{ display: 'flex', gap: '12px' }}>
+                                        <button 
+                                            onClick={handleAbortRoom} 
+                                            disabled={isAborting} 
+                                            className="btn-anim" 
+                                            style={{ ...btnStyle, backgroundColor: '#ef4444', flex: 1, padding: '16px', fontSize: '1.1rem' }}
+                                        >
+                                            {isAborting ? 'Aborting...' : 'Abort Room'}
+                                        </button>
+                                        
+                                        <button 
+                                            onClick={handleProceedToUpload} 
+                                            className="btn-anim" 
+                                            style={{ ...btnStyle, backgroundColor: '#3b82f6', flex: 2, padding: '16px', fontSize: '1.1rem' }}
+                                        >
+                                            Match Started → Move to Result Upload
+                                        </button>
+                                    </div>
+
                                 </div>
                             ) : (
                                 <div>

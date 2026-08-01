@@ -41,4 +41,6 @@ urlpatterns = [
     path('queue/leave/', views.leave_queue, name='leave_queue'),
 
     path('host/active-room/', views.host_active_room, name='host_active_room'),
+
+    path('host/abort-room/', views.host_abort_room, name='host-abort-room'),
 ]

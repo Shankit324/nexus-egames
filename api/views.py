@@ -550,3 +550,26 @@ def host_active_room(request):
         "room_password": room_password,
         "roster": roster_data
     }, status=200)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def host_abort_room(request):
+    """Cancels the active room and returns all allocated players to the waiting queue."""
+    if not request.user.is_staff:
+        return Response({"error": "Unauthorized"}, status=403)
+        
+    # Find all players currently assigned to the room
+    allocated_players = MatchQueue.objects.filter(status='Allocated')
+    
+    if not allocated_players.exists():
+        return Response({"error": "No active room found to abort."}, status=400)
+        
+    # Revert them back to the waiting queue
+    for entry in allocated_players:
+        entry.status = 'Waiting'
+        entry.room_id = None
+        entry.room_password = None
+        entry.slot_number = None
+        entry.save()
+        
+    return Response({"message": "Room aborted. Players returned to queue."}, status=200)
