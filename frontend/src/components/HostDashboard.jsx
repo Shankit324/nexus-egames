@@ -7,9 +7,10 @@ export default function HostDashboard() {
     
     // --- LOBBY & ACTIVE ROOM STATES ---
     const [queue, setQueue] = useState([]);
+    const [queueMode, setQueueMode] = useState('Squad'); // NEW: Toggles between Squad and Solo
     const [roomId, setRoomId] = useState('');
     const [allocating, setAllocating] = useState(false);
-    const [isAborting, setIsAborting] = useState(false); // NEW STATE
+    const [isAborting, setIsAborting] = useState(false); 
     
     const [allocationSuccess, setAllocationSuccess] = useState(false); 
     const [activeRoom, setActiveRoom] = useState(null);
@@ -66,7 +67,8 @@ export default function HostDashboard() {
             const response = await apiFetch('/api/host/auto-allocate/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_id: roomId, mode: 'Squad' })
+                // FIX: Now sends the actively selected queueMode instead of hardcoded 'Squad'
+                body: JSON.stringify({ room_id: roomId, mode: queueMode })
             });
             const data = await response.json();
             
@@ -84,15 +86,12 @@ export default function HostDashboard() {
         }
     };
 
-    // --- NEW ABORT FUNCTION ---
     const handleAbortRoom = async () => {
         if (!window.confirm("Are you sure you want to abort this room? Players will be returned to the waiting queue.")) return;
         
         setIsAborting(true);
         try {
-            const response = await apiFetch('/api/host/abort-room/', {
-                method: 'POST',
-            });
+            const response = await apiFetch('/api/host/abort-room/', { method: 'POST' });
             
             if (response.ok) {
                 setAllocationSuccess(false); 
@@ -146,13 +145,15 @@ export default function HostDashboard() {
         } catch (error) { console.error(error); } finally { setUploading(false); }
     };
 
-    // --- COPY FUNCTION ---
     const handleCopyUid = (uid) => {
         if (!uid) return;
         navigator.clipboard.writeText(uid);
         setCopiedUid(uid);
         setTimeout(() => setCopiedUid(null), 2000);
     };
+
+    // dynamically filter the queue list based on the active sub-tab
+    const filteredQueue = queue.filter(q => q.mode === queueMode);
 
     return (
         <div className="host-dashboard" style={{ maxWidth: '960px', margin: '2rem auto', padding: '0 15px', color: '#e2e8f0', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
@@ -202,25 +203,43 @@ export default function HostDashboard() {
                         
                         {!allocationSuccess && (
                             <div>
+                                {/* QUEUE MODE TOGGLE (Squad vs Solo) */}
+                                <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+                                    <button 
+                                        onClick={() => setQueueMode('Squad')}
+                                        className="btn-anim"
+                                        style={{ flex: 1, padding: '12px', borderRadius: '8px', fontWeight: 'bold', border: '1px solid #334155', backgroundColor: queueMode === 'Squad' ? '#8b5cf6' : '#0f172a', color: queueMode === 'Squad' ? 'white' : '#94a3b8' }}
+                                    >
+                                        Squad Matchmaking
+                                    </button>
+                                    <button 
+                                        onClick={() => setQueueMode('Solo')}
+                                        className="btn-anim"
+                                        style={{ flex: 1, padding: '12px', borderRadius: '8px', fontWeight: 'bold', border: '1px solid #334155', backgroundColor: queueMode === 'Solo' ? '#3b82f6' : '#0f172a', color: queueMode === 'Solo' ? 'white' : '#94a3b8' }}
+                                    >
+                                        Solo Matchmaking
+                                    </button>
+                                </div>
+
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                                     <h3 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: queue.length > 0 ? '#10b981' : '#64748b', boxShadow: queue.length > 0 ? '0 0 10px #10b981' : 'none' }}></div>
-                                        Live Matchmaking Queue
+                                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: filteredQueue.length > 0 ? '#10b981' : '#64748b', boxShadow: filteredQueue.length > 0 ? '0 0 10px #10b981' : 'none' }}></div>
+                                        Live {queueMode} Queue
                                     </h3>
                                     <span style={{ backgroundColor: '#0f172a', padding: '4px 12px', borderRadius: '20px', fontSize: '0.875rem', fontWeight: 'bold', border: '1px solid #334155' }}>
-                                        {queue.length} Waiting
+                                        {filteredQueue.length} Waiting
                                     </span>
                                 </div>
                                 
                                 <div className="custom-scroll" style={{ maxHeight: '300px', overflowY: 'auto', backgroundColor: '#0f172a', padding: '12px', borderRadius: '12px', border: '1px solid #1e293b', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)' }}>
-                                    {queue.length === 0 ? (
+                                    {filteredQueue.length === 0 ? (
                                         <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
                                             <p style={{ fontSize: '1.2rem', margin: '0 0 8px 0' }}>Queue is empty</p>
-                                            <p style={{ margin: 0, fontSize: '0.9rem' }}>Waiting for players to join...</p>
+                                            <p style={{ margin: 0, fontSize: '0.9rem' }}>Waiting for {queueMode.toLowerCase()} players to join...</p>
                                         </div>
                                     ) : (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                            {queue.map(q => (
+                                            {filteredQueue.map(q => (
                                                 <div key={q.queue_id} className="list-card" style={{ padding: '16px', backgroundColor: '#1e293b', borderRadius: '8px', border: '1px solid #334155' }}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                                                         <strong style={{ fontSize: '1.1rem', color: q.type === 'Team' ? '#60a5fa' : '#34d399' }}>
@@ -308,26 +327,15 @@ export default function HostDashboard() {
                                         </table>
                                     </div>
 
-                                    {/* NEW BUTTON LAYOUT HERE */}
                                     <div style={{ display: 'flex', gap: '12px' }}>
-                                        <button 
-                                            onClick={handleAbortRoom} 
-                                            disabled={isAborting} 
-                                            className="btn-anim" 
-                                            style={{ ...btnStyle, backgroundColor: '#ef4444', flex: 1, padding: '16px', fontSize: '1.1rem' }}
-                                        >
+                                        <button onClick={handleAbortRoom} disabled={isAborting} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#ef4444', flex: 1, padding: '16px', fontSize: '1.1rem' }}>
                                             {isAborting ? 'Aborting...' : 'Abort Room'}
                                         </button>
                                         
-                                        <button 
-                                            onClick={handleProceedToUpload} 
-                                            className="btn-anim" 
-                                            style={{ ...btnStyle, backgroundColor: '#3b82f6', flex: 2, padding: '16px', fontSize: '1.1rem' }}
-                                        >
+                                        <button onClick={handleProceedToUpload} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#3b82f6', flex: 2, padding: '16px', fontSize: '1.1rem' }}>
                                             Match Started → Move to Result Upload
                                         </button>
                                     </div>
-
                                 </div>
                             ) : (
                                 <div>
@@ -338,14 +346,14 @@ export default function HostDashboard() {
                                     <form onSubmit={handleAllocateLobby} style={{ display: 'flex', gap: '12px', alignItems: 'stretch' }}>
                                         <input 
                                             type="text" 
-                                            placeholder="Free Fire Room ID" 
+                                            placeholder={`Free Fire Room ID for ${queueMode}`} 
                                             value={roomId} 
                                             onChange={(e) => setRoomId(e.target.value)} 
                                             required 
                                             style={{ ...inputStyle, flex: 2 }} 
                                         />
-                                        <button type="submit" disabled={allocating || queue.length === 0} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#3b82f6', flex: 1 }}>
-                                            {allocating ? 'Processing...' : 'Broadcast to Queue'}
+                                        <button type="submit" disabled={allocating || filteredQueue.length === 0} className="btn-anim" style={{ ...btnStyle, backgroundColor: queueMode === 'Squad' ? '#8b5cf6' : '#3b82f6', flex: 1 }}>
+                                            {allocating ? 'Processing...' : `Broadcast to ${queueMode} Queue`}
                                         </button>
                                     </form>
                                 </div>
@@ -354,6 +362,7 @@ export default function HostDashboard() {
                     </div>
                 )}
 
+                {/* --- RESULT UPLOAD TAB --- */}
                 {activeTab === 'results' && (
                     <div>
                         <h3 style={{ margin: '0 0 24px 0', fontSize: '1.5rem' }}>Process Match Results</h3>
