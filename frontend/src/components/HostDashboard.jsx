@@ -7,10 +7,10 @@ export default function HostDashboard() {
     
     // --- LOBBY & ACTIVE ROOM STATES ---
     const [queue, setQueue] = useState([]);
-    const [queueMode, setQueueMode] = useState('Squad'); // NEW: Toggles between Squad and Solo
+    const [queueMode, setQueueMode] = useState('Squad'); // NEW: Toggles between Squad and Solo lists
     const [roomId, setRoomId] = useState('');
     const [allocating, setAllocating] = useState(false);
-    const [isAborting, setIsAborting] = useState(false); 
+    const [isAborting, setIsAborting] = useState(false);
     
     const [allocationSuccess, setAllocationSuccess] = useState(false); 
     const [activeRoom, setActiveRoom] = useState(null);
@@ -67,7 +67,7 @@ export default function HostDashboard() {
             const response = await apiFetch('/api/host/auto-allocate/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                // FIX: Now sends the actively selected queueMode instead of hardcoded 'Squad'
+                // FIX: Dynamically send the selected mode (Squad or Solo) instead of hardcoding it!
                 body: JSON.stringify({ room_id: roomId, mode: queueMode })
             });
             const data = await response.json();
@@ -152,7 +152,7 @@ export default function HostDashboard() {
         setTimeout(() => setCopiedUid(null), 2000);
     };
 
-    // dynamically filter the queue list based on the active sub-tab
+    // Filter the incoming master queue to only show players matching the Host's selected tab
     const filteredQueue = queue.filter(q => q.mode === queueMode);
 
     return (
@@ -203,21 +203,21 @@ export default function HostDashboard() {
                         
                         {!allocationSuccess && (
                             <div>
-                                {/* QUEUE MODE TOGGLE (Squad vs Solo) */}
+                                {/* --- NEW: QUEUE MODE TOGGLE (Squad vs Solo) --- */}
                                 <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
                                     <button 
                                         onClick={() => setQueueMode('Squad')}
                                         className="btn-anim"
                                         style={{ flex: 1, padding: '12px', borderRadius: '8px', fontWeight: 'bold', border: '1px solid #334155', backgroundColor: queueMode === 'Squad' ? '#8b5cf6' : '#0f172a', color: queueMode === 'Squad' ? 'white' : '#94a3b8' }}
                                     >
-                                        Squad Matchmaking
+                                        Squad Matchmaking Queue
                                     </button>
                                     <button 
                                         onClick={() => setQueueMode('Solo')}
                                         className="btn-anim"
                                         style={{ flex: 1, padding: '12px', borderRadius: '8px', fontWeight: 'bold', border: '1px solid #334155', backgroundColor: queueMode === 'Solo' ? '#3b82f6' : '#0f172a', color: queueMode === 'Solo' ? 'white' : '#94a3b8' }}
                                     >
-                                        Solo Matchmaking
+                                        Solo Matchmaking Queue
                                     </button>
                                 </div>
 
@@ -352,6 +352,7 @@ export default function HostDashboard() {
                                             required 
                                             style={{ ...inputStyle, flex: 2 }} 
                                         />
+                                        {/* Dynamic Button Color based on selected Mode */}
                                         <button type="submit" disabled={allocating || filteredQueue.length === 0} className="btn-anim" style={{ ...btnStyle, backgroundColor: queueMode === 'Squad' ? '#8b5cf6' : '#3b82f6', flex: 1 }}>
                                             {allocating ? 'Processing...' : `Broadcast to ${queueMode} Queue`}
                                         </button>
