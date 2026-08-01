@@ -310,8 +310,9 @@ export default function PlayerDashboard({ profile }) {
                             ⚔️ Quick Play Modes
                         </h3>
                         
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
                             
+                            {/* SOLO BR */}
                             <div className="card">
                                 <div>
                                     <h4 style={{ fontSize: '1.25rem', margin: '0 0 8px 0', color: '#f8fafc' }}>Battle Royale (Solo)</h4>
@@ -322,6 +323,18 @@ export default function PlayerDashboard({ profile }) {
                                 </button>
                             </div>
 
+                            {/* SQUAD BR (AUTO-FILL) */}
+                            <div className="card">
+                                <div>
+                                    <h4 style={{ fontSize: '1.25rem', margin: '0 0 8px 0', color: '#f8fafc' }}>Battle Royale (Squad)</h4>
+                                    <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '20px' }}>Auto-fill into a 4-player squad with random teammates.</p>
+                                </div>
+                                <button onClick={() => handleJoinQueue(null, 'Squad')} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#8b5cf6', width: '100%', marginTop: 'auto' }}>
+                                    Join Squad Queue
+                                </button>
+                            </div>
+
+                            {/* CLASH SQUAD */}
                             <div className="card">
                                 <div>
                                     <h4 style={{ fontSize: '1.25rem', margin: '0 0 8px 0', color: '#f8fafc' }}>Clash Squad (4v4)</h4>
