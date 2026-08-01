@@ -92,7 +92,6 @@ export default function PlayerDashboard({ profile }) {
         } catch (error) { console.error("Failed to join team", error); }
     };
 
-    // UPDATED: Now accepts a 'mode' parameter for Solo/ClashSquad/Squad routing
     const handleJoinQueue = async (teamId = null, mode = 'Squad') => {
         try {
             const payload = teamId ? { team_id: teamId, mode } : { mode };
@@ -334,16 +333,6 @@ export default function PlayerDashboard({ profile }) {
                                 </button>
                             </div>
 
-                            {/* CLASH SQUAD */}
-                            <div className="card">
-                                <div>
-                                    <h4 style={{ fontSize: '1.25rem', margin: '0 0 8px 0', color: '#f8fafc' }}>Clash Squad (4v4)</h4>
-                                    <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '20px' }}>Fast-paced 4v4 tactical battle. Queue with randoms or your squad.</p>
-                                </div>
-                                <button onClick={() => handleJoinQueue(null, 'ClashSquad')} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#f59e0b', width: '100%', marginTop: 'auto' }}>
-                                    Join Clash Queue
-                                </button>
-                            </div>
                         </div>
                     </div>
 
