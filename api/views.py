@@ -350,18 +350,19 @@ def host_auto_allocate(request):
         return Response({"error": "Unauthorized"}, status=403)
 
     room_id = request.data.get('room_id')
-    target_mode = request.data.get('mode', 'Squad')
+    target_mode = request.data.get('mode', 'Squad') # 'ClashSquad', 'Solo', 'Duo', or 'Squad'
 
     if not room_id:
         return Response({"error": "Room ID is required."}, status=400)
 
+    # Filter the queue for players waiting for this specific mode
     waiting_entries = MatchQueue.objects.filter(
         status='Waiting', 
         game_mode=target_mode
     ).order_by('joined_queue_at')
 
     if not waiting_entries.exists():
-        return Response({"error": "No players in the queue for this mode."}, status=400)
+        return Response({"error": f"No players in the queue for {target_mode} mode."}, status=400)
 
     def get_size(entry):
         return entry.team.size if entry.team else 1
@@ -369,14 +370,29 @@ def host_auto_allocate(request):
     sorted_entries = list(waiting_entries)
     sorted_entries.sort(key=get_size, reverse=True)
 
-    max_slot_size = 4 if target_mode == 'Squad' else (2 if target_mode == 'Duo' else 1)
-    max_slots = 12
+    # ==============================================================
+    # DYNAMIC ROOM CAPACITIES
+    # ==============================================================
+    if target_mode == 'ClashSquad':
+        max_slot_size = 4
+        max_slots = 2   # 2 Teams of 4 = 8 players total
+    elif target_mode == 'Solo':
+        max_slot_size = 1
+        max_slots = 50  # 50 individual solo players
+    elif target_mode == 'Duo':
+        max_slot_size = 2
+        max_slots = 25  # 25 Teams of 2 = 50 players total
+    else: 
+        # Default Battle Royale Squad
+        max_slot_size = 4
+        max_slots = 12  # 12 Teams of 4 = 48 players total
 
     slots = [] 
     for entry in sorted_entries:
         size = get_size(entry)
         placed = False
         
+        # Try to fit the team/player into an existing slot
         for slot in slots:
             if slot['current_size'] + size <= max_slot_size:
                 slot['entries'].append(entry)
@@ -384,13 +400,14 @@ def host_auto_allocate(request):
                 placed = True
                 break
         
+        # If they don't fit in an existing slot, create a new one
         if not placed:
             if len(slots) < max_slots:
                 slots.append({'current_size': size, 'entries': [entry]})
             else:
-                break 
+                break # The room is full! Stop adding players.
 
-    # 4. Save the allocations to the database (NO PASSWORD SAVED)
+    # Save the allocations to the database (NO PASSWORD SAVED)
     allocated_count = 0
     for index, slot in enumerate(slots):
         slot_num = index + 1 
@@ -402,7 +419,7 @@ def host_auto_allocate(request):
             allocated_count += get_size(entry)
 
     return Response({
-        "message": f"System matched {allocated_count} players into {len(slots)} slots!",
+        "message": f"System matched {allocated_count} players into {len(slots)} slots for {target_mode}!",
         "room_id": room_id
     }, status=200)
 

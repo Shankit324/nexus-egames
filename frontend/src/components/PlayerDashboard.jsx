@@ -92,12 +92,15 @@ export default function PlayerDashboard({ profile }) {
         } catch (error) { console.error("Failed to join team", error); }
     };
 
-    const handleJoinQueue = async (teamId = null) => {
+    // UPDATED: Now accepts a 'mode' parameter for Solo/ClashSquad/Squad routing
+    const handleJoinQueue = async (teamId = null, mode = 'Squad') => {
         try {
+            const payload = teamId ? { team_id: teamId, mode } : { mode };
+            
             const response = await apiFetch('/api/queue/join/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(teamId ? { team_id: teamId } : {})
+                body: JSON.stringify(payload)
             });
             
             const text = await response.text();
@@ -210,7 +213,6 @@ export default function PlayerDashboard({ profile }) {
             
             {/* INJECTED CSS */}
             <style>{`
-                /* Added box-sizing and width: 100% to prevent inputs from overflowing their containers */
                 .player-dashboard input, .player-dashboard select {
                     padding: 12px 16px; border-radius: 8px; border: 1px solid #475569;
                     background-color: #0f172a; color: white; font-size: 1rem; transition: all 0.2s;
@@ -272,12 +274,12 @@ export default function PlayerDashboard({ profile }) {
             {/* HEADER */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <div>
-                    <h2 style={{ fontSize: '2rem', fontWeight: '800', margin: '0 0 0.5rem 0', background: 'linear-gradient(to right, #3b82f6, #10b981)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                        Welcome back, {profile.ign}
+                    <h2 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', color: '#f8fafc' }}>
+                        Welcome back, <span style={{ color: '#10b981', fontWeight: '800' }}>{profile.ign}</span>
                     </h2>
                     <p style={{ color: '#94a3b8', margin: 0 }}>Ready for your next match?</p>
                 </div>
-                <button onClick={() => setCurrentView('history')} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#334155' }}>
+                <button onClick={() => setCurrentView('history')} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#1e293b', border: '1px solid #334155' }}>
                     View Past Matches
                 </button>
             </div>
@@ -297,48 +299,81 @@ export default function PlayerDashboard({ profile }) {
                 </div>
             )}
             
-            {/* ACTIONS GRID */}
+            {/* HIDE ACTION SECTIONS IF IN QUEUE */}
             {!matchStatus && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '40px' }}>
-                    
-                    <div className="card">
-                        <div>
-                            <h3 style={{ marginTop: 0, fontSize: '1.25rem', color: '#f8fafc' }}>Play Solo</h3>
-                            <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '20px' }}>Join the matchmaking queue as a lone wolf.</p>
+                <>
+                    {/* ======================================================= */}
+                    {/* 1. QUICK PLAY MODES (TOP)                               */}
+                    {/* ======================================================= */}
+                    <div style={{ marginBottom: '3rem' }}>
+                        <h3 style={{ fontSize: '1.25rem', color: '#f8fafc', marginBottom: '1rem', borderBottom: '1px solid #334155', paddingBottom: '0.5rem' }}>
+                            ⚔️ Quick Play Modes
+                        </h3>
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                            
+                            <div className="card">
+                                <div>
+                                    <h4 style={{ fontSize: '1.25rem', margin: '0 0 8px 0', color: '#f8fafc' }}>Battle Royale (Solo)</h4>
+                                    <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '20px' }}>Join the matchmaking queue as a lone wolf.</p>
+                                </div>
+                                <button onClick={() => handleJoinQueue(null, 'Solo')} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#3b82f6', width: '100%', marginTop: 'auto' }}>
+                                    Join Solo Queue
+                                </button>
+                            </div>
+
+                            <div className="card">
+                                <div>
+                                    <h4 style={{ fontSize: '1.25rem', margin: '0 0 8px 0', color: '#f8fafc' }}>Clash Squad (4v4)</h4>
+                                    <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '20px' }}>Fast-paced 4v4 tactical battle. Queue with randoms or your squad.</p>
+                                </div>
+                                <button onClick={() => handleJoinQueue(null, 'ClashSquad')} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#f59e0b', width: '100%', marginTop: 'auto' }}>
+                                    Join Clash Queue
+                                </button>
+                            </div>
                         </div>
-                        <button onClick={() => handleJoinQueue(null)} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#3b82f6', width: '100%', marginTop: 'auto' }}>Join Solo Queue</button>
                     </div>
 
-                    <div className="card">
-                        <div>
-                            <h3 style={{ marginTop: 0, fontSize: '1.25rem', color: '#f8fafc' }}>Create a Team</h3>
-                            <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '20px' }}>Lead your own squad to victory.</p>
-                        </div>
-                        {/* Changed from horizontal row to stacked column */}
-                        <form onSubmit={handleCreateTeam} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: 'auto' }}>
-                            <input type="text" placeholder="Team Name" value={teamName} onChange={(e) => setTeamName(e.target.value)} required />
-                            <select value={teamSize} onChange={(e) => setTeamSize(e.target.value)}>
-                                <option value="2">Duo (2 Players)</option>
-                                <option value="3">Trio (3 Players)</option>
-                                <option value="4">Squad (4 Players)</option>
-                            </select>
-                            <button type="submit" className="btn-anim" style={{ ...btnStyle, backgroundColor: '#3b82f6', width: '100%' }}>Create</button>
-                        </form>
-                    </div>
+                    {/* ======================================================= */}
+                    {/* 2. SQUAD MANAGEMENT (BOTTOM)                            */}
+                    {/* ======================================================= */}
+                    <div style={{ marginBottom: '3rem' }}>
+                        <h3 style={{ fontSize: '1.25rem', color: '#f8fafc', marginBottom: '1rem', borderBottom: '1px solid #334155', paddingBottom: '0.5rem' }}>
+                            🛡️ Squad Management
+                        </h3>
 
-                    <div className="card">
-                        <div>
-                            <h3 style={{ marginTop: 0, fontSize: '1.25rem', color: '#f8fafc' }}>Join a Team</h3>
-                            <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '20px' }}>Enter an 8-character invite code.</p>
-                        </div>
-                        {/* Changed from horizontal row to stacked column */}
-                        <form onSubmit={handleJoinTeam} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: 'auto' }}>
-                            <input type="text" placeholder="TEAM CODE" value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} maxLength={8} required style={{ textTransform: 'uppercase', letterSpacing: '1px' }}/>
-                            <button type="submit" className="btn-anim" style={{ ...btnStyle, backgroundColor: '#10b981', width: '100%' }}>Join</button>
-                        </form>
-                    </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                            
+                            <div className="card">
+                                <div>
+                                    <h4 style={{ fontSize: '1.25rem', margin: '0 0 8px 0', color: '#f8fafc' }}>Create a Team</h4>
+                                    <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '16px' }}>Lead your own squad to victory.</p>
+                                </div>
+                                <form onSubmit={handleCreateTeam} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: 'auto' }}>
+                                    <input type="text" placeholder="Team Name" value={teamName} onChange={(e) => setTeamName(e.target.value)} required />
+                                    <select value={teamSize} onChange={(e) => setTeamSize(e.target.value)}>
+                                        <option value="4">Squad (4 Players)</option>
+                                        <option value="3">Trio (3 Players)</option>
+                                        <option value="2">Duo (2 Players)</option>
+                                    </select>
+                                    <button type="submit" className="btn-anim" style={{ ...btnStyle, backgroundColor: '#3b82f6', width: '100%' }}>Create</button>
+                                </form>
+                            </div>
 
-                </div>
+                            <div className="card">
+                                <div>
+                                    <h4 style={{ fontSize: '1.25rem', margin: '0 0 8px 0', color: '#f8fafc' }}>Join a Team</h4>
+                                    <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '16px' }}>Enter an 8-character invite code.</p>
+                                </div>
+                                <form onSubmit={handleJoinTeam} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: 'auto' }}>
+                                    <input type="text" placeholder="TEAM CODE" value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase())} maxLength={8} required style={{ textTransform: 'uppercase', letterSpacing: '1px' }}/>
+                                    <button type="submit" className="btn-anim" style={{ ...btnStyle, backgroundColor: '#10b981', width: '100%' }}>Join</button>
+                                </form>
+                            </div>
+
+                        </div>
+                    </div>
+                </>
             )}
 
             {/* MY TEAMS LIST */}
@@ -353,6 +388,9 @@ export default function PlayerDashboard({ profile }) {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {teams.map(team => {
                             const isTeamFull = team.roster.length === team.size_limit;
+                            // Determine mode based on team size
+                            const teamMode = team.size_limit === 2 ? 'Duo' : 'Squad';
+                            
                             return (
                                 <div key={team.id} className="card" style={{ padding: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -368,7 +406,7 @@ export default function PlayerDashboard({ profile }) {
                                         
                                         <div style={{ display: 'flex', gap: '10px' }}>
                                             {team.is_leader && !matchStatus && isTeamFull && (
-                                                <button onClick={() => handleJoinQueue(team.id)} className="btn-anim" style={{...btnStyle, backgroundColor: '#10b981'}}>Queue for Match</button>
+                                                <button onClick={() => handleJoinQueue(team.id, teamMode)} className="btn-anim" style={{...btnStyle, backgroundColor: '#10b981'}}>Queue for Match</button>
                                             )}
                                             {team.is_leader && (
                                                 <button onClick={() => handleDeleteTeam(team.id)} className="btn-anim" style={{...btnStyle, backgroundColor: 'transparent', border: '1px solid #ef4444', color: '#ef4444'}}>Disband</button>
@@ -395,4 +433,4 @@ export default function PlayerDashboard({ profile }) {
     );
 }
 
-const btnStyle = { padding: '12px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '1rem', border: 'none' };
+const btnStyle = { padding: '12px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '1rem', border: 'none', color: 'white' };
