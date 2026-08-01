@@ -370,18 +370,9 @@ def host_auto_allocate(request):
     sorted_entries = list(waiting_entries)
     sorted_entries.sort(key=get_size, reverse=True)
 
-    # ==============================================================
-    # DYNAMIC ROOM CAPACITIES
-    # ==============================================================
-    if target_mode == 'ClashSquad':
-        max_slot_size = 4
-        max_slots = 2   # 2 Teams of 4 = 8 players total
-    elif target_mode == 'Solo':
+    if target_mode == 'Solo':
         max_slot_size = 1
         max_slots = 50  # 50 individual solo players
-    elif target_mode == 'Duo':
-        max_slot_size = 2
-        max_slots = 25  # 25 Teams of 2 = 50 players total
     else: 
         # Default Battle Royale Squad
         max_slot_size = 4
