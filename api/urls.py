@@ -43,4 +43,10 @@ urlpatterns = [
     path('host/active-room/', views.host_active_room, name='host_active_room'),
 
     path('host/abort-room/', views.host_abort_room, name='host-abort-room'),
+
+    # Wallet Endpoints
+    path('wallet/', views.get_wallet_data, name='wallet-data'),
+    path('wallet/add-bank/', views.add_bank_account, name='wallet-add-bank'),
+    path('wallet/top-up/', views.top_up_wallet, name='wallet-top-up'),
+    path('wallet/withdraw/', views.withdraw_funds, name='wallet-withdraw'),
 ]

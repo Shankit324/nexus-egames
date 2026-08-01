@@ -113,3 +113,44 @@ class MatchQueue(models.Model):
     
     joined_queue_at = models.DateTimeField(auto_now_add=True)
 
+class Wallet(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='wallet')
+    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+
+    def __str__(self):
+        return f"{self.user.username}'s Wallet - ${self.balance}"
+
+class BankAccount(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bank_accounts')
+    account_holder_name = models.CharField(max_length=255)
+    account_number = models.CharField(max_length=50)
+    routing_number = models.CharField(max_length=50) # Use this for Routing, IFSC, or SWIFT codes
+    bank_name = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"{self.bank_name} ending in {self.account_number[-4:]}"
+
+class Transaction(models.Model):
+    TRANSACTION_TYPES = (
+        ('TOPUP', 'Wallet Top-Up'),
+        ('WITHDRAW', 'Withdraw to Bank'),
+        ('ENTRY_FEE', 'Tournament Entry Fee'),
+        ('PRIZE', 'Tournament Prize Winning'),
+    )
+    STATUS_CHOICES = (
+        ('PENDING', 'Pending'),
+        ('COMPLETED', 'Completed'),
+        ('FAILED', 'Failed'),
+    )
+    
+    wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE, related_name='transactions')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    # Only used if the user is withdrawing money to a real bank
+    bank_account = models.ForeignKey(BankAccount, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.transaction_type} of ${self.amount} - {self.status}"

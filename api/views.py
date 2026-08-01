@@ -8,6 +8,8 @@ from django.shortcuts import get_object_or_404
 from django.db import IntegrityError, transaction
 from .ocr_engine import process_screenshot
 from .models import Match, PlayerProfile, MatchResult, Tournament, MatchQueue, Team, TeamMember
+from decimal import Decimal, InvalidOperation
+from .models import Wallet, BankAccount, Transaction
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -290,12 +292,6 @@ def manage_teams(request):
             
         return Response({"teams": teams_data}, status=200)
 
-
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
-# Assuming Team and MatchQueue are imported at the top of your file
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -592,3 +588,113 @@ def host_abort_room(request):
         entry.save()
         
     return Response({"message": "Room aborted. Players returned to queue."}, status=200)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_wallet_data(request):
+    """Fetches the player's balance, masked bank accounts, and transaction history."""
+    # Ensure wallet exists for the user; if not, create an empty one
+    wallet, created = Wallet.objects.get_or_create(user=request.user)
+    
+    banks = BankAccount.objects.filter(user=request.user).values(
+        'id', 'bank_name', 'account_number', 'account_holder_name'
+    )
+    
+    # Mask the account numbers for security before sending to React (e.g., ****1234)
+    safe_banks = [
+        {**bank, 'account_number': f"****{bank['account_number'][-4:]}"} 
+        for bank in banks
+    ]
+    
+    # Get the 15 most recent transactions
+    transactions = Transaction.objects.filter(wallet=wallet).order_by('-timestamp')[:15].values(
+        'id', 'amount', 'transaction_type', 'status', 'timestamp'
+    )
+
+    return Response({
+        "balance": wallet.balance,
+        "banks": safe_banks,
+        "transactions": transactions
+    }, status=200)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def add_bank_account(request):
+    """Saves a new bank account for withdrawals."""
+    data = request.data
+    
+    if not all(k in data for k in ("account_holder_name", "account_number", "routing_number", "bank_name")):
+        return Response({"error": "Missing required bank details."}, status=400)
+        
+    BankAccount.objects.create(
+        user=request.user,
+        account_holder_name=data['account_holder_name'],
+        account_number=data['account_number'],
+        routing_number=data['routing_number'],
+        bank_name=data['bank_name']
+    )
+    return Response({"message": "Bank account linked successfully!"}, status=201)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def top_up_wallet(request):
+    """Simulates adding money to the wallet."""
+    try:
+        amount = Decimal(str(request.data.get('amount', 0)))
+    except InvalidOperation:
+        return Response({"error": "Invalid amount format."}, status=400)
+
+    if amount <= 0:
+        return Response({"error": "Top-up amount must be greater than zero."}, status=400)
+        
+    wallet, _ = Wallet.objects.get_or_create(user=request.user)
+    
+    # Atomic block ensures money is only added if the receipt is successfully logged
+    with transaction.atomic():
+        wallet.balance += amount
+        wallet.save()
+        
+        Transaction.objects.create(
+            wallet=wallet, 
+            amount=amount, 
+            transaction_type='TOPUP', 
+            status='COMPLETED'
+        )
+        
+    return Response({"message": f"${amount} added to your wallet!"}, status=200)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def withdraw_funds(request):
+    """Requests a withdrawal to a linked bank account."""
+    try:
+        amount = Decimal(str(request.data.get('amount', 0)))
+    except InvalidOperation:
+        return Response({"error": "Invalid amount format."}, status=400)
+        
+    bank_id = request.data.get('bank_id')
+    wallet, _ = Wallet.objects.get_or_create(user=request.user)
+    
+    if amount <= 0:
+        return Response({"error": "Withdrawal amount must be greater than zero."}, status=400)
+        
+    if amount > wallet.balance:
+        return Response({"error": "Insufficient funds in your wallet."}, status=400)
+        
+    bank = get_object_or_404(BankAccount, id=bank_id, user=request.user)
+    
+    with transaction.atomic():
+        # Deduct instantly so the user cannot double-spend the money
+        wallet.balance -= amount
+        wallet.save()
+        
+        # Create a PENDING transaction for the Host/Admin to approve manually in the future
+        Transaction.objects.create(
+            wallet=wallet, 
+            amount=amount, 
+            transaction_type='WITHDRAW', 
+            status='PENDING', 
+            bank_account=bank
+        )
+        
+    return Response({"message": "Withdrawal requested successfully. Waiting for admin approval."}, status=200)

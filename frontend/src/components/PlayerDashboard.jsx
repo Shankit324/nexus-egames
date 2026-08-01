@@ -3,18 +3,29 @@ import { useState, useEffect } from 'react';
 import { apiFetch } from '../utils/api';
 
 export default function PlayerDashboard({ profile }) {
-    const [currentView, setCurrentView] = useState('dashboard');
+    // --- NAVIGATION STATE ---
+    const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard', 'history', or 'wallet'
     
+    // --- MATCHMAKING & TEAM STATES ---
     const [history, setHistory] = useState([]);
     const [teams, setTeams] = useState([]);
-    
     const [teamName, setTeamName] = useState('');
     const [teamSize, setTeamSize] = useState(4);
     const [joinCode, setJoinCode] = useState('');
     const [queueMessage, setQueueMessage] = useState('');
-
     const [matchStatus, setMatchStatus] = useState(null);
 
+    // --- WALLET STATES ---
+    const [walletData, setWalletData] = useState({ balance: 0.00, banks: [], transactions: [] });
+    const [topUpAmount, setTopUpAmount] = useState('');
+    const [withdrawAmount, setWithdrawAmount] = useState('');
+    const [selectedBank, setSelectedBank] = useState('');
+    const [newBank, setNewBank] = useState({ account_holder_name: '', account_number: '', routing_number: '', bank_name: '' });
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    // ==========================================
+    // API FETCH FUNCTIONS
+    // ==========================================
     const fetchHistory = async () => {
         try {
             const response = await apiFetch('/api/player/history/');
@@ -35,20 +46,30 @@ export default function PlayerDashboard({ profile }) {
         } catch (error) { console.error(error); }
     };
 
+    const fetchWallet = async () => {
+        try {
+            const response = await apiFetch('/api/wallet/');
+            if (response.ok) {
+                const data = await response.json();
+                setWalletData(data);
+                if (data.banks.length > 0 && !selectedBank) {
+                    setSelectedBank(data.banks[0].id); // Auto-select first bank for withdrawal
+                }
+            }
+        } catch (error) { console.error(error); }
+    };
+
     useEffect(() => {
         fetchTeams();
         fetchHistory();
+        fetchWallet();
 
         const checkQueueStatus = async () => {
             try {
                 const response = await apiFetch('/api/queue/status/');
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.in_queue) {
-                        setMatchStatus(data);
-                    } else {
-                        setMatchStatus(null);
-                    }
+                    setMatchStatus(data.in_queue ? data : null);
                 }
             } catch (error) { console.error(error); }
         };
@@ -58,6 +79,9 @@ export default function PlayerDashboard({ profile }) {
         return () => clearInterval(intervalId);
     }, []);
 
+    // ==========================================
+    // MATCHMAKING & TEAM FUNCTIONS
+    // ==========================================
     const handleCreateTeam = async (e) => {
         e.preventDefault();
         try {
@@ -95,7 +119,6 @@ export default function PlayerDashboard({ profile }) {
     const handleJoinQueue = async (teamId = null, mode = 'Squad') => {
         try {
             const payload = teamId ? { team_id: teamId, mode } : { mode };
-            
             const response = await apiFetch('/api/queue/join/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -123,34 +146,83 @@ export default function PlayerDashboard({ profile }) {
     const handleDeleteTeam = async (teamId) => {
         const confirmDelete = window.confirm("Are you sure you want to delete this team?");
         if (!confirmDelete) return;
-
         try {
             const response = await apiFetch(`/api/teams/${teamId}/`, { method: 'DELETE' });
-            if (response.ok) {
-                fetchTeams(); 
-            } else {
-                const data = await response.json();
-                alert(data.error);
-            }
+            if (response.ok) fetchTeams(); 
+            else alert((await response.json()).error);
         } catch (error) { console.error("Failed to delete team", error); }
     };
 
     const handleLeaveQueue = async () => {
         const confirmLeave = window.confirm("Are you sure you want to leave? If you are a team leader, this will pull your entire squad out of the match.");
         if (!confirmLeave) return;
-
         try {
             const response = await apiFetch('/api/queue/leave/', { method: 'POST' });
-            
             if (response.ok) {
                 setMatchStatus(null); 
                 setQueueMessage('');
-            } else {
-                const data = await response.json();
-                alert(data.error);
-            }
+            } else alert((await response.json()).error);
         } catch (error) { console.error("Failed to leave queue", error); }
     };
+
+    // ==========================================
+    // WALLET FUNCTIONS
+    // ==========================================
+    const handleTopUp = async (e) => {
+        e.preventDefault();
+        setIsProcessing(true);
+        try {
+            const response = await apiFetch('/api/wallet/top-up/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount: topUpAmount })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                alert(data.message);
+                setTopUpAmount('');
+                fetchWallet();
+            } else alert(data.error);
+        } catch (error) { console.error(error); } finally { setIsProcessing(false); }
+    };
+
+    const handleWithdraw = async (e) => {
+        e.preventDefault();
+        if (!selectedBank) return alert("Please select or add a bank account first.");
+        setIsProcessing(true);
+        try {
+            const response = await apiFetch('/api/wallet/withdraw/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount: withdrawAmount, bank_id: selectedBank })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                alert(data.message);
+                setWithdrawAmount('');
+                fetchWallet();
+            } else alert(data.error);
+        } catch (error) { console.error(error); } finally { setIsProcessing(false); }
+    };
+
+    const handleAddBank = async (e) => {
+        e.preventDefault();
+        setIsProcessing(true);
+        try {
+            const response = await apiFetch('/api/wallet/add-bank/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newBank)
+            });
+            const data = await response.json();
+            if (response.ok) {
+                alert(data.message);
+                setNewBank({ account_holder_name: '', account_number: '', routing_number: '', bank_name: '' });
+                fetchWallet();
+            } else alert(data.error);
+        } catch (error) { console.error(error); } finally { setIsProcessing(false); }
+    };
+
 
     // ==========================================
     // RENDER: MATCH HISTORY VIEW
@@ -162,19 +234,14 @@ export default function PlayerDashboard({ profile }) {
                     .player-dashboard .btn-anim { transition: all 0.2s ease; }
                     .player-dashboard .btn-anim:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
                 `}</style>
-                
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                     <h2 style={{ fontSize: '2rem', margin: 0, color: '#f8fafc' }}>Past Match History</h2>
-                    <button onClick={() => setCurrentView('dashboard')} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#334155' }}>
-                        ← Back to Dashboard
-                    </button>
+                    <button onClick={() => setCurrentView('dashboard')} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#334155' }}>← Back to Dashboard</button>
                 </div>
                 
                 <div style={{ backgroundColor: '#1e293b', borderRadius: '12px', border: '1px solid #334155', overflow: 'hidden' }}>
                     {history.length === 0 ? (
-                        <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
-                            <p style={{ fontSize: '1.2rem', margin: 0 }}>You haven't played any tracked matches yet.</p>
-                        </div>
+                        <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}><p style={{ fontSize: '1.2rem', margin: 0 }}>You haven't played any tracked matches yet.</p></div>
                     ) : (
                         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                             <thead style={{ backgroundColor: '#0f172a' }}>
@@ -196,6 +263,118 @@ export default function PlayerDashboard({ profile }) {
                                         <td style={{ padding: '16px', color: '#10b981', fontWeight: 'bold', textAlign: 'right', fontSize: '1.1rem' }}>+{match.points}</td>
                                     </tr>
                                 ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // ==========================================
+    // RENDER: WALLET VIEW
+    // ==========================================
+    if (currentView === 'wallet') {
+        return (
+            <div className="player-dashboard" style={{ maxWidth: '960px', margin: '2rem auto', padding: '0 15px', color: '#e2e8f0', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+                <style>{`
+                    .player-dashboard input, .player-dashboard select {
+                        padding: 12px 16px; border-radius: 8px; border: 1px solid #475569;
+                        background-color: #0f172a; color: white; font-size: 1rem; transition: all 0.2s; box-sizing: border-box; width: 100%;
+                    }
+                    .player-dashboard input:focus, .player-dashboard select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); }
+                    .player-dashboard .btn-anim { transition: all 0.2s ease; }
+                    .player-dashboard .btn-anim:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+                    .player-dashboard .btn-anim:active:not(:disabled) { transform: translateY(0); }
+                `}</style>
+                
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <h2 style={{ fontSize: '2rem', margin: 0, color: '#f8fafc' }}>Esports Wallet</h2>
+                    <button onClick={() => setCurrentView('dashboard')} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#334155' }}>← Back to Dashboard</button>
+                </div>
+
+                {/* CURRENT BALANCE */}
+                <div style={{ backgroundColor: '#10b981', padding: '24px', borderRadius: '16px', textAlign: 'center', marginBottom: '32px', boxShadow: '0 10px 25px -5px rgba(16, 185, 129, 0.3)' }}>
+                    <p style={{ color: '#ecfdf5', margin: '0 0 8px 0', fontSize: '1.1rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Available Balance</p>
+                    <h1 style={{ color: 'white', fontSize: '3.5rem', margin: 0, fontWeight: '800' }}>
+                        ${parseFloat(walletData.balance).toFixed(2)}
+                    </h1>
+                </div>
+
+                {/* TOP UP & WITHDRAW GRID */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+                    {/* Top Up Card */}
+                    <div style={{ backgroundColor: '#1e293b', padding: '24px', borderRadius: '12px', border: '1px solid #334155' }}>
+                        <h3 style={{ margin: '0 0 16px 0', color: '#f8fafc' }}>Top Up Wallet</h3>
+                        <form onSubmit={handleTopUp} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <input type="number" step="0.01" min="1" placeholder="Amount (e.g. 10.00)" value={topUpAmount} onChange={e => setTopUpAmount(e.target.value)} required />
+                            <button type="submit" disabled={isProcessing} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#3b82f6', width: '100%' }}>Add Funds</button>
+                        </form>
+                    </div>
+
+                    {/* Withdraw Card */}
+                    <div style={{ backgroundColor: '#1e293b', padding: '24px', borderRadius: '12px', border: '1px solid #334155' }}>
+                        <h3 style={{ margin: '0 0 16px 0', color: '#f8fafc' }}>Withdraw Winnings</h3>
+                        {walletData.banks.length === 0 ? (
+                            <p style={{ color: '#94a3b8', fontSize: '0.95rem' }}>Link a bank account below to withdraw funds.</p>
+                        ) : (
+                            <form onSubmit={handleWithdraw} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <input type="number" step="0.01" min="1" max={walletData.balance} placeholder="Amount to withdraw" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} required />
+                                <select value={selectedBank} onChange={e => setSelectedBank(e.target.value)} required>
+                                    <option value="" disabled>Select Bank Account</option>
+                                    {walletData.banks.map(bank => (
+                                        <option key={bank.id} value={bank.id}>{bank.bank_name} ({bank.account_number})</option>
+                                    ))}
+                                </select>
+                                <button type="submit" disabled={isProcessing} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#f59e0b', width: '100%' }}>Request Withdrawal</button>
+                            </form>
+                        )}
+                    </div>
+                </div>
+
+                {/* LINK BANK ACCOUNT */}
+                <div style={{ backgroundColor: '#1e293b', padding: '24px', borderRadius: '12px', border: '1px solid #334155', marginBottom: '32px' }}>
+                    <h3 style={{ margin: '0 0 16px 0', color: '#f8fafc' }}>Link a Bank Account</h3>
+                    <form onSubmit={handleAddBank} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                        <input type="text" placeholder="Account Holder Name" value={newBank.account_holder_name} onChange={e => setNewBank({...newBank, account_holder_name: e.target.value})} required />
+                        <input type="text" placeholder="Bank Name (e.g. Chase)" value={newBank.bank_name} onChange={e => setNewBank({...newBank, bank_name: e.target.value})} required />
+                        <input type="text" placeholder="Account Number" value={newBank.account_number} onChange={e => setNewBank({...newBank, account_number: e.target.value})} required />
+                        <input type="text" placeholder="Routing / IFSC Code" value={newBank.routing_number} onChange={e => setNewBank({...newBank, routing_number: e.target.value})} required />
+                        <button type="submit" disabled={isProcessing} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#10b981', gridColumn: '1 / -1' }}>Link Securely</button>
+                    </form>
+                </div>
+
+                {/* TRANSACTION HISTORY */}
+                <h3 style={{ fontSize: '1.5rem', color: '#f8fafc', marginBottom: '16px' }}>Recent Transactions</h3>
+                <div style={{ backgroundColor: '#1e293b', borderRadius: '12px', border: '1px solid #334155', overflow: 'hidden' }}>
+                    {walletData.transactions.length === 0 ? (
+                        <div style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>No transactions yet.</div>
+                    ) : (
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                            <thead style={{ backgroundColor: '#0f172a' }}>
+                                <tr>
+                                    <th style={{ padding: '16px', color: '#94a3b8' }}>Date</th>
+                                    <th style={{ padding: '16px', color: '#94a3b8' }}>Type</th>
+                                    <th style={{ padding: '16px', color: '#94a3b8' }}>Status</th>
+                                    <th style={{ padding: '16px', color: '#94a3b8', textAlign: 'right' }}>Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {walletData.transactions.map((tx) => {
+                                    const isAddition = ['TOPUP', 'PRIZE'].includes(tx.transaction_type);
+                                    return (
+                                        <tr key={tx.id} style={{ borderTop: '1px solid #334155' }}>
+                                            <td style={{ padding: '16px', color: '#cbd5e1' }}>{new Date(tx.timestamp).toLocaleDateString()}</td>
+                                            <td style={{ padding: '16px', fontWeight: 'bold', color: '#f8fafc' }}>{tx.transaction_type.replace('_', ' ')}</td>
+                                            <td style={{ padding: '16px', color: tx.status === 'COMPLETED' ? '#10b981' : tx.status === 'FAILED' ? '#ef4444' : '#f59e0b' }}>
+                                                {tx.status}
+                                            </td>
+                                            <td style={{ padding: '16px', color: isAddition ? '#10b981' : '#ef4444', fontWeight: 'bold', textAlign: 'right', fontSize: '1.1rem' }}>
+                                                {isAddition ? '+' : '-'}${parseFloat(tx.amount).toFixed(2)}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     )}
@@ -232,7 +411,7 @@ export default function PlayerDashboard({ profile }) {
                 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
             `}</style>
             
-            {/* MATCH FOUND OVERLAY (Full Screen Modal) */}
+            {/* MATCH FOUND OVERLAY */}
             {matchStatus?.status === 'Allocated' && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
@@ -278,9 +457,14 @@ export default function PlayerDashboard({ profile }) {
                     </h2>
                     <p style={{ color: '#94a3b8', margin: 0 }}>Ready for your next match?</p>
                 </div>
-                <button onClick={() => setCurrentView('history')} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#1e293b', border: '1px solid #334155' }}>
-                    View Past Matches
-                </button>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    <button onClick={() => setCurrentView('wallet')} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#10b981', border: '1px solid #059669' }}>
+                        💳 My Wallet (${parseFloat(walletData.balance).toFixed(2)})
+                    </button>
+                    <button onClick={() => setCurrentView('history')} className="btn-anim" style={{ ...btnStyle, backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+                        View Past Matches
+                    </button>
+                </div>
             </div>
 
             {/* WAITING BANNER */}
@@ -310,7 +494,6 @@ export default function PlayerDashboard({ profile }) {
                         </h3>
                         
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-                            
                             {/* SOLO BR */}
                             <div className="card">
                                 <div>
@@ -332,7 +515,6 @@ export default function PlayerDashboard({ profile }) {
                                     Join Squad Queue
                                 </button>
                             </div>
-
                         </div>
                     </div>
 
@@ -345,7 +527,6 @@ export default function PlayerDashboard({ profile }) {
                         </h3>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
-                            
                             <div className="card">
                                 <div>
                                     <h4 style={{ fontSize: '1.25rem', margin: '0 0 8px 0', color: '#f8fafc' }}>Create a Team</h4>
@@ -372,7 +553,6 @@ export default function PlayerDashboard({ profile }) {
                                     <button type="submit" className="btn-anim" style={{ ...btnStyle, backgroundColor: '#10b981', width: '100%' }}>Join</button>
                                 </form>
                             </div>
-
                         </div>
                     </div>
                 </>
@@ -390,7 +570,6 @@ export default function PlayerDashboard({ profile }) {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {teams.map(team => {
                             const isTeamFull = team.roster.length === team.size_limit;
-                            // Determine mode based on team size
                             const teamMode = team.size_limit === 2 ? 'Duo' : 'Squad';
                             
                             return (
